@@ -1,6 +1,7 @@
 {
   "packs": [
-    "VzratieKoti.json"
+    "VzratieKoti.json",
+    "BrokenCats.json"
   ],
   "homeserver_url": "https://matrix.hedlx.com"
 }
