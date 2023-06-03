@@ -20,6 +20,7 @@ import os.path
 import json
 import re
 
+from aiohttp import ClientSession
 from telethon import TelegramClient
 from telethon.tl.functions.messages import GetAllStickersRequest, GetStickerSetRequest
 from telethon.tl.types.messages import AllStickers
@@ -29,13 +30,13 @@ from telethon.tl.types.messages import StickerSet as StickerSetFull
 from .lib import matrix, util
 
 
-async def reupload_document(client: TelegramClient, document: Document) -> matrix.StickerInfo:
+async def reupload_document(sess: ClientSession, client: TelegramClient, document: Document) -> matrix.StickerInfo:
     print(f"Reuploading {document.id}", end="", flush=True)
     data = await client.download_media(document, file=bytes)
     print(".", end="", flush=True)
     data, width, height = util.convert_image(data)
     print(".", end="", flush=True)
-    mxc = await matrix.upload(data, "image/png", f"{document.id}.png")
+    mxc = await matrix.upload(sess, data, "image/png", f"{document.id}.png")
     print(".", flush=True)
     return util.make_sticker(mxc, width, height, len(data))
 
@@ -79,15 +80,17 @@ async def reupload_pack(client: TelegramClient, pack: StickerSetFull, output_dir
     except FileNotFoundError:
         pass
 
+    sess = ClientSession()
     reuploaded_documents: Dict[int, matrix.StickerInfo] = {}
     for document in pack.documents:
         try:
             reuploaded_documents[document.id] = already_uploaded[document.id]
             print(f"Skipped reuploading {document.id}")
         except KeyError:
-            reuploaded_documents[document.id] = await reupload_document(client, document)
+            reuploaded_documents[document.id] = await reupload_document(sess, client, document)
         # Always ensure the body and telegram metadata is correct
         add_meta(document, reuploaded_documents[document.id], pack)
+    await sess.close()
 
     for sticker in pack.packs:
         if not sticker.emoticon:

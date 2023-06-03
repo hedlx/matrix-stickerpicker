@@ -21,6 +21,7 @@ import os.path
 import asyncio
 import string
 import json
+from aiohttp import ClientSession
 
 try:
     import magic
@@ -39,7 +40,7 @@ def convert_name(name: str) -> str:
     return "".join(filter(lambda char: char in allowed_chars, name.translate(name_translate)))
 
 
-async def upload_sticker(file: str, directory: str, old_stickers: Dict[str, matrix.StickerInfo]
+async def upload_sticker(sess: ClientSession, file: str, directory: str, old_stickers: Dict[str, matrix.StickerInfo]
                          ) -> Optional[matrix.StickerInfo]:
     if file.startswith("."):
         return None
@@ -79,7 +80,7 @@ async def upload_sticker(file: str, directory: str, old_stickers: Dict[str, matr
     else:
         image_data, width, height = util.convert_image(image_data)
         print(".", end="", flush=True)
-        mxc = await matrix.upload(image_data, "image/png", file)
+        mxc = await matrix.upload(sess, image_data, "image/png", file)
         print(".", end="", flush=True)
         sticker = util.make_sticker(mxc, width, height, len(image_data), name)
         sticker["id"] = sticker_id
@@ -107,10 +108,12 @@ async def main(args: argparse.Namespace) -> None:
         old_stickers = {sticker["id"]: sticker for sticker in pack["stickers"]}
         pack["stickers"] = []
 
+    sess = ClientSession()
     for file in sorted(os.listdir(args.path)):
-        sticker = await upload_sticker(file, args.path, old_stickers=old_stickers)
+        sticker = await upload_sticker(sess, file, args.path, old_stickers=old_stickers)
         if sticker:
             pack["stickers"].append(sticker)
+    await sess.close()
 
     with util.open_utf8(meta_path, "w") as pack_file:
         json.dump(pack, pack_file)

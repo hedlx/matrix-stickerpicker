@@ -83,8 +83,8 @@ async def whoami(url: URL, access_token: str) -> str:
         return user_id
 
 
-async def upload(data: bytes, mimetype: str, filename: str) -> str:
+async def upload(sess: ClientSession, data: bytes, mimetype: str, filename: str) -> str:
     url = upload_url.with_query({"filename": filename})
     headers = {"Content-Type": mimetype, "Authorization": f"Bearer {access_token}"}
-    async with ClientSession() as sess, sess.post(url, data=data, headers=headers) as resp:
+    async with sess.post(url, data=data, headers=headers) as resp:
         return (await resp.json())["content_uri"]
